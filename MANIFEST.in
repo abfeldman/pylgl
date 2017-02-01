@@ -1,0 +1,8 @@
+include README.rst
+include LICENSE
+include lglcfg.h
+include lglcflags.h
+include lglconst.h
+include lglib.h
+include lgloptl.h
+include lglopts.h
