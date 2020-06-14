@@ -31,6 +31,7 @@
 #endif
 
 static void (*sig_alrm_handler)(int);
+static void (*sig_int_handler)(int);
 
 inline static void *py_malloc(void *mmgr, size_t bytes)
 {
@@ -150,19 +151,31 @@ static int add_clauses(LGL *lgl, PyObject *clauses)
     return 0;
 }
 
-static int caughtalarm = 0;
+static int caughtalarm = 0, caughtint = 0,timelimit = -1;
+
+static void catchint (int sig) {
+  assert (sig == SIGINT);
+  printf("Terminating lingeling\n");
+  fflush (stdout);
+  exit(0);
+}
 
 static void catchalrm (int sig) {
   assert (sig == SIGALRM);
   if (!caughtalarm) {
     caughtalarm = 1;
-    caughtsigmsg (sig);
     if (timelimit >= 0) {
       printf ("c time limit of %d reached\n",
               timelimit);
       fflush (stdout);
     }
   }
+}
+
+static int checkint (void * ptr) {
+  assert (ptr == (void*) &caughtint);
+  (void) ptr;
+  return caughtint;
 }
 
 static int checkalarm (void * ptr) {
@@ -177,7 +190,6 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
 
     PyObject *clauses;          /* iterable of clauses */
     int vars = -1;
-    int timelimit = 2000000000;
     int verbose = 0;
     int seed = 0;
     int simplify = 2;
@@ -216,6 +228,7 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
 
     lgl = lglminit(NULL, py_malloc, py_realloc, py_free);
     lglsetopt(lgl, "seed", seed);
+    lglsetopt(lgl, "verbose", verbose);
     lglsetopt(lgl, "simplify", simplify);
     lglsetopt(lgl, "randec", randec);
     lglsetopt(lgl, "randecint", randecint);
@@ -226,10 +239,15 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
         return NULL;
     }
 
+    lglseterm (lgl, checkint, &caughtint);
+    sig_int_handler = signal (SIGINT, catchint);
+
     // timelimit alarm
     lglseterm (lgl, checkalarm, &caughtalarm);
     sig_alrm_handler = signal (SIGALRM, catchalrm);
-    alarm (timelimit);
+    if (timelimit > 0) {
+      alarm (timelimit);
+    }
 
     lglseterm (lgl, checkalarm, &caughtalarm);
     
