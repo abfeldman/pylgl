@@ -30,6 +30,8 @@
 #define PyUnicode_FromString  PyString_FromString
 #endif
 
+static int verbose = 0, timelimit = -1;
+
 static void (*sig_alrm_handler)(int);
 static void (*sig_int_handler)(int);
 
@@ -151,12 +153,14 @@ static int add_clauses(LGL *lgl, PyObject *clauses)
     return 0;
 }
 
-static int caughtalarm = 0, caughtint = 0,timelimit = -1;
+static int caughtalarm = 0, caughtint = 0;
 
 static void catchint (int sig) {
   assert (sig == SIGINT);
-  printf("Terminating lingeling\n");
-  fflush (stdout);
+  if (verbose > 0 ) {
+    printf("Terminating lingeling\n");
+    fflush (stdout);
+  }
   exit(0);
 }
 
@@ -164,7 +168,7 @@ static void catchalrm (int sig) {
   assert (sig == SIGALRM);
   if (!caughtalarm) {
     caughtalarm = 1;
-    if (timelimit >= 0) {
+    if (timelimit >= 0 && verbose > 0) {
       printf ("c time limit of %d reached\n",
               timelimit);
       fflush (stdout);
@@ -190,7 +194,6 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
 
     PyObject *clauses;          /* iterable of clauses */
     int vars = -1;
-    int verbose = 0;
     int seed = 0;
     int simplify = 2;
     int randec = 0;
