@@ -6,6 +6,7 @@
 #define PYLGL_URL  "https://pypi.python.org/pypi/pylgl"
 
 #include <Python.h>
+#include <signal.h>
 
 #ifdef _MSC_VER
 #define NGETRUSAGE
@@ -28,6 +29,8 @@
 #if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION <= 5
 #define PyUnicode_FromString  PyString_FromString
 #endif
+
+static void (*sig_alrm_handler)(int);
 
 inline static void *py_malloc(void *mmgr, size_t bytes)
 {
@@ -147,12 +150,34 @@ static int add_clauses(LGL *lgl, PyObject *clauses)
     return 0;
 }
 
+static int caughtalarm = 0;
+
+static void catchalrm (int sig) {
+  assert (sig == SIGALRM);
+  if (!caughtalarm) {
+    caughtalarm = 1;
+    caughtsigmsg (sig);
+    if (timelimit >= 0) {
+      printf ("c time limit of %d reached\n",
+              timelimit);
+      fflush (stdout);
+    }
+  }
+}
+
+static int checkalarm (void * ptr) {
+  assert (ptr == (void*) &caughtalarm);
+  (void) ptr;
+  return caughtalarm;
+}
+
 static LGL *setup_lgl(PyObject *args, PyObject *kwds)
 {
     LGL *lgl;
 
     PyObject *clauses;          /* iterable of clauses */
     int vars = -1;
+    int timelimit = 2000000000;
     int verbose = 0;
     int seed = 0;
     int simplify = 2;
@@ -162,6 +187,7 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
     int randphaseint = 503;
     static char *kwlist[] = { "clauses",
                               "vars",
+                              "timelimit",
                               "verbose",
                               "seed",
                               "simplify",
@@ -177,6 +203,7 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
                                      kwlist,
                                      &clauses,
                                      &vars,
+                                     &timelimit,
                                      &verbose,
                                      &seed,
                                      &simplify,
@@ -198,6 +225,13 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
     if (add_clauses(lgl, clauses) < 0) {
         return NULL;
     }
+
+    // timelimit alarm
+    lglseterm (lgl, checkalarm, &caughtalarm);
+    sig_alrm_handler = signal (SIGALRM, catchalrm);
+    alarm (timelimit);
+
+    lglseterm (lgl, checkalarm, &caughtalarm);
     
     return lgl;
 }
