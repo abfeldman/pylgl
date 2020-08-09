@@ -17,8 +17,8 @@ if sys.platform != 'win32':
 
 if '--inplace' in sys.argv:
     EXT_KWDS['define_macros'].append(('DONT_INCLUDE_LGL', True))
-    EXT_KWDS['library_dirs'] = ['.']
-    EXT_KWDS['libraries'] = ['pylgl']
+#    EXT_KWDS['library_dirs'] = ['.']
+#    EXT_KWDS['libraries'] = ['pylgl']
 
 setup(name="pylgl",
       version=VERSION,
@@ -36,5 +36,5 @@ setup(name="pylgl",
                    "Topic :: Utilities"],
       ext_modules=[Extension(**EXT_KWDS)],
       py_modules=['test_pylgl'],
-      description="bindings to lgl (a SAT solver)",
+      description="bindings to lgl (an SAT solver)",
       long_description=open('README.rst').read())

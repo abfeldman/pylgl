@@ -112,6 +112,7 @@ static int add_clause(LGL *lgl, PyObject *clause)
         lgladd(lgl, v);
         lglfreeze(lgl, v);
     }
+
     Py_DECREF(iterator);
     if (PyErr_Occurred()) {
         return -1;
@@ -140,10 +141,12 @@ static int add_clauses(LGL *lgl, PyObject *clauses)
         }
         Py_DECREF(item);
     }
+
     Py_DECREF(iterator);
     if (PyErr_Occurred()) {
         return -1;
     }
+
     return 0;
 }
 
@@ -207,7 +210,7 @@ static void destroy_lgl(LGL *lgl)
     lglrelease(lgl);
 }
 
-static PyObject* get_solution(LGL *lgl)
+static PyObject *get_solution(LGL *lgl)
 {
     PyObject *list;
     int max_idx;
@@ -224,7 +227,7 @@ static PyObject* get_solution(LGL *lgl)
         assert(v == -1 || v == 1);
         if (PyList_SetItem(list,
                            (Py_ssize_t)(i - 1),
-                           PyInt_FromLong((long) (v * i))) < 0) {
+                           PyInt_FromLong((long)(v * i))) < 0) {
             Py_DECREF(list);
             return NULL;
         }
@@ -303,7 +306,7 @@ Solve the SAT problem for the clauses, and return an iterator over\n\
 the solutions (which are lists of integers).\n\
 Please see " PYLGL_URL " for more details.");
 
-static PyObject* soliter_next(soliterobject *it)
+static PyObject *soliter_next(soliterobject *it)
 {
     PyObject *result = NULL;
     int rc;

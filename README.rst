@@ -4,6 +4,7 @@ pylgl: bindings to lingeling (a SAT solver)
 
 Authors:
 --------
+
 A lot of Python binding code and documentation has been lifted from PycoSAT
 <https://pypi.python.org/pypi/pycosat>
 
