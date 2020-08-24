@@ -6,6 +6,7 @@
 #define PYLGL_URL  "https://pypi.python.org/pypi/pylgl"
 
 #include <Python.h>
+#include <signal.h>
 
 #ifdef _MSC_VER
 #define NGETRUSAGE
@@ -28,6 +29,11 @@
 #if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION <= 5
 #define PyUnicode_FromString  PyString_FromString
 #endif
+
+static int verbose = 0, timelimit = -1;
+
+static void (*sig_alrm_handler)(int);
+static void (*sig_int_handler)(int);
 
 inline static void *py_malloc(void *mmgr, size_t bytes)
 {
@@ -150,13 +156,47 @@ static int add_clauses(LGL *lgl, PyObject *clauses)
     return 0;
 }
 
+static int caughtalarm = 0, caughtint = 0;
+
+static void catchint (int sig) {
+  assert (sig == SIGINT);
+  if (verbose > 0 ) {
+    printf("Terminating lingeling\n");
+    fflush (stdout);
+  }
+  exit(0);
+}
+
+static void catchalrm (int sig) {
+  assert (sig == SIGALRM);
+  if (!caughtalarm) {
+    caughtalarm = 1;
+    if (timelimit >= 0 && verbose > 0) {
+      printf ("c time limit of %d reached\n",
+              timelimit);
+      fflush (stdout);
+    }
+  }
+}
+
+static int checkint (void * ptr) {
+  assert (ptr == (void*) &caughtint);
+  (void) ptr;
+  return caughtint;
+}
+
+static int checkalarm (void * ptr) {
+  assert (ptr == (void*) &caughtalarm);
+  (void) ptr;
+  return caughtalarm;
+}
+
 static LGL *setup_lgl(PyObject *args, PyObject *kwds)
 {
     LGL *lgl;
 
     PyObject *clauses;          /* iterable of clauses */
     int vars = -1;
-    int verbose = 0;
     int seed = 0;
     int simplify = 2;
     int randec = 0;
@@ -165,6 +205,7 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
     int randphaseint = 503;
     static char *kwlist[] = { "clauses",
                               "vars",
+                              "timelimit",
                               "verbose",
                               "seed",
                               "simplify",
@@ -180,6 +221,7 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
                                      kwlist,
                                      &clauses,
                                      &vars,
+                                     &timelimit,
                                      &verbose,
                                      &seed,
                                      &simplify,
@@ -192,6 +234,7 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
 
     lgl = lglminit(NULL, py_malloc, py_realloc, py_free);
     lglsetopt(lgl, "seed", seed);
+    lglsetopt(lgl, "verbose", verbose);
     lglsetopt(lgl, "simplify", simplify);
     lglsetopt(lgl, "randec", randec);
     lglsetopt(lgl, "randecint", randecint);
@@ -201,6 +244,18 @@ static LGL *setup_lgl(PyObject *args, PyObject *kwds)
     if (add_clauses(lgl, clauses) < 0) {
         return NULL;
     }
+
+    lglseterm (lgl, checkint, &caughtint);
+    sig_int_handler = signal (SIGINT, catchint);
+
+    // timelimit alarm
+    lglseterm (lgl, checkalarm, &caughtalarm);
+    sig_alrm_handler = signal (SIGALRM, catchalrm);
+    if (timelimit > 0) {
+      alarm (timelimit);
+    }
+
+    lglseterm (lgl, checkalarm, &caughtalarm);
     
     return lgl;
 }
